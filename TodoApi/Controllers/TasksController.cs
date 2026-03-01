@@ -16,14 +16,22 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TodoTask>>> GetAll()
     {
-        var userId = GetUserId();
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         return Ok(await dbContext.Tasks.Where(t => t.UserId == userId).ToListAsync());
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<TodoTask>> GetById(int id)
     {
-        var userId = GetUserId();
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var task = await dbContext.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
         return task is null ? NotFound() : Ok(task);
     }
@@ -31,13 +39,18 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<TodoTask>> Create(TaskRequest request)
     {
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var task = new TodoTask
         {
             Title = request.Title,
             Content = request.Content,
             Date = request.Date,
             Status = request.Status,
-            UserId = GetUserId()
+            UserId = userId
         };
 
         dbContext.Tasks.Add(task);
@@ -49,7 +62,11 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, TaskRequest request)
     {
-        var userId = GetUserId();
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var task = await dbContext.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
         if (task is null)
         {
@@ -68,7 +85,11 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var userId = GetUserId();
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
         var task = await dbContext.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
         if (task is null)
         {
@@ -80,8 +101,8 @@ public class TasksController(AppDbContext dbContext) : ControllerBase
         return NoContent();
     }
 
-    private int GetUserId()
+    private bool TryGetUserId(out int userId)
     {
-        return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
     }
 }

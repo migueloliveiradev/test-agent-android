@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,18 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 });
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not configured.");
+var jwtKey = builder.Configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    if (!builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException("JWT key not configured. Set Jwt:Key or JWT_KEY.");
+    }
+
+    jwtKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+}
+
+builder.Configuration["Jwt:Key"] = jwtKey;
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

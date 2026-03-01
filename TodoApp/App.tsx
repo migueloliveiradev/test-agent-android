@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -20,15 +20,19 @@ type TodoTask = {
   status: string;
 };
 
+const getToday = () =>
+  new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+const defaultApiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5184';
+
 export default function App() {
-  const [apiUrl, setApiUrl] = useState('http://localhost:5281');
+  const [apiUrl, setApiUrl] = useState(defaultApiUrl);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [token, setToken] = useState('');
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(getToday());
   const [status, setStatus] = useState('Pendente');
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -43,75 +47,92 @@ export default function App() {
   );
 
   const auth = async (endpoint: 'register' | 'login') => {
-    const response = await fetch(`${apiUrl}/api/auth/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch(`${apiUrl}/api/auth/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!response.ok) {
-      Alert.alert('Erro', `${endpoint === 'register' ? 'Registro' : 'Login'} falhou`);
-      return;
+      if (!response.ok) {
+        Alert.alert('Erro', `${endpoint === 'register' ? 'Registro' : 'Login'} falhou`);
+        return;
+      }
+
+      const data: AuthResponse = await response.json();
+      setToken(data.token);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível conectar à API.');
     }
-
-    const data: AuthResponse = await response.json();
-    setToken(data.token);
   };
 
-  const loadTasks = async () => {
-    const response = await fetch(`${apiUrl}/api/tasks`, { headers });
-    if (!response.ok) {
-      return;
-    }
+  const loadTasks = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiUrl}/api/tasks`, { headers });
+      if (!response.ok) {
+        Alert.alert('Erro', 'Não foi possível carregar as tarefas.');
+        return;
+      }
 
-    const data: TodoTask[] = await response.json();
-    setTasks(data);
-  };
+      const data: TodoTask[] = await response.json();
+      setTasks(data);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível carregar as tarefas.');
+    }
+  }, [apiUrl, headers]);
 
   useEffect(() => {
     if (token) {
       loadTasks();
     }
-  }, [token]);
+  }, [token, loadTasks]);
 
   const saveTask = async () => {
     const payload = {
       title,
       content,
-      date: new Date(date).toISOString(),
+      date: `${date}T00:00:00Z`,
       status,
     };
 
     const url = editingId ? `${apiUrl}/api/tasks/${editingId}` : `${apiUrl}/api/tasks`;
     const method = editingId ? 'PUT' : 'POST';
 
-    const response = await fetch(url, {
-      method,
-      headers,
-      body: JSON.stringify(payload),
-    });
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: JSON.stringify(payload),
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        Alert.alert('Erro', 'Não foi possível salvar a tarefa.');
+        return;
+      }
+
+      setTitle('');
+      setContent('');
+      setDate(getToday());
+      setStatus('Pendente');
+      setEditingId(null);
+      await loadTasks();
+    } catch {
       Alert.alert('Erro', 'Não foi possível salvar a tarefa.');
-      return;
     }
-
-    setTitle('');
-    setContent('');
-    setDate(new Date().toISOString().slice(0, 10));
-    setStatus('Pendente');
-    setEditingId(null);
-    await loadTasks();
   };
 
   const removeTask = async (id: number) => {
-    const response = await fetch(`${apiUrl}/api/tasks/${id}`, {
-      method: 'DELETE',
-      headers,
-    });
+    try {
+      const response = await fetch(`${apiUrl}/api/tasks/${id}`, {
+        method: 'DELETE',
+        headers,
+      });
 
-    if (response.ok) {
-      await loadTasks();
+      if (response.ok) {
+        await loadTasks();
+      }
+    } catch {
+      Alert.alert('Erro', 'Não foi possível excluir a tarefa.');
     }
   };
 

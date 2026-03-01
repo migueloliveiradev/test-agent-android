@@ -11,9 +11,10 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
     public async Task Register_ReturnsToken()
     {
         var client = factory.CreateClient();
+        var email = $"{Guid.NewGuid():N}@test.com";
         var response = await client.PostAsJsonAsync("/api/auth/register", new
         {
-            email = "user1@test.com",
+            email,
             password = "123456"
         });
 
@@ -27,7 +28,7 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
     public async Task AuthenticatedUser_CanCrudTasks()
     {
         var client = factory.CreateClient();
-        var token = await RegisterAndGetToken(client, "user2@test.com");
+        var token = await RegisterAndGetToken(client, $"{Guid.NewGuid():N}@test.com");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var createResponse = await client.PostAsJsonAsync("/api/tasks", new

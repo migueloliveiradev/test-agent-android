@@ -15,13 +15,16 @@ Execute:
 
 ```bash
 cd /home/runner/work/test-agent-android/test-agent-android/TodoApi
-dotnet run --urls http://localhost:5281
+dotnet run
 ```
 
 Endpoints:
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET/POST/PUT/DELETE /api/tasks`
+
+> Em produção, sobrescreva `Jwt:Key` via variável de ambiente/configuração segura.  
+> Em desenvolvimento, sem `Jwt:Key` configurada, a API gera uma chave temporária por execução (tokens anteriores expiram ao reiniciar a API).
 
 ## App Expo
 Execute:
